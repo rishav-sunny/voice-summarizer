@@ -1,4 +1,3 @@
-import React, { useRef, useState } from 'react'
 
 // React frontend adapted for Deepgram realtime via backend bridge.
 // Differences from previous version:
