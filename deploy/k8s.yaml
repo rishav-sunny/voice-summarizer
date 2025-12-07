@@ -1,0 +1,96 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: voice-summarizer
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: deepgram-secret
+  namespace: voice-summarizer
+type: Opaque
+stringData:
+  DEEPGRAM_API_KEY: "REPLACE_WITH_ROTATED_KEY"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: voice-summarizer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: voice-summarizer-backend:local
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DEEPGRAM_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: deepgram-secret
+              key: DEEPGRAM_API_KEY
+        ports:
+        - containerPort: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: voice-summarizer
+spec:
+  selector:
+    app: backend
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: voice-summarizer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: voice-summarizer-frontend:local
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: VITE_BACKEND_WS
+          value: ws://backend.voice-summarizer.svc.cluster.local:8000/ws/transcribe/
+        - name: VITE_BACKEND_HTTP
+          value: http://backend.voice-summarizer.svc.cluster.local:8000
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: voice-summarizer
+spec:
+  selector:
+    app: frontend
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    nodePort: 30080
+  type: NodePort
